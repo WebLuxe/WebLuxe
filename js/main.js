@@ -123,7 +123,9 @@ function copy(text){function fb(){var ta=document.createElement('textarea');ta.v
   var MAXP=matchMedia('(pointer:coarse)').matches?2:6, on=new Set(), ratio=new Map();
   function start(v){if(on.has(v))return;if(on.size>=MAXP){var worst=null,wr=2;on.forEach(function(o){var r=ratio.get(o)||0;if(r<wr){wr=r;worst=o}});if(worst&&wr<(ratio.get(v)||0))stop(worst);else return}
     on.add(v);if(document.hidden)return;var p=v.play();if(p&&p.catch)p.catch(function(){})}
-  function stop(v){if(!on.has(v))return;on.delete(v);if(!v.paused)v.pause()}
+  /* when a slot frees up, start the most visible video that was waiting (it may already be fully on screen) */
+  function stop(v){if(!on.has(v))return;on.delete(v);if(!v.paused)v.pause();
+    var next=null,nr=.45;ratio.forEach(function(r,w){if(!on.has(w)&&r>=nr){nr=r;next=w}});if(next)start(next)}
   var io=new IntersectionObserver(function(es){es.forEach(function(e){var v=e.target,r=e.isIntersecting?e.intersectionRatio:0;ratio.set(v,r);
     if(r>=.45)start(v);else if(r<.1)stop(v)})},{threshold:[0,.1,.25,.45,.7,1]});
   vids.forEach(function(v){io.observe(v)});
@@ -218,19 +220,27 @@ applyCur();
 document.addEventListener('click',function(e){var b=e.target.closest('[data-plan]');if(!b)return;
   var t=TIERS.filter(function(x){return x.id===b.dataset.plan})[0];var sel=$('#fTier');
   sel.selectedIndex=TIERS.indexOf(t); if(mode==='be')$('#fType').value='A website with backend / admin';
-  if(!$('#fMsg').value)$('#fMsg').value='I’m interested in the '+t.name+' tier'+(mode==='be'?' with backend & admin panel':'')+'.';
+  /* fill the message if it's empty or still the auto-filled line from an earlier plan click */
+  var fm=$('#fMsg');if(!fm.value||/^I’m interested in the \w+ tier( with backend & admin panel)?\.$/.test(fm.value))fm.value='I’m interested in the '+t.name+' tier'+(mode==='be'?' with backend & admin panel':'')+'.';
+  if($('#formDone').classList.contains('show'))buildMsg();
 });
 
 /* ---------- contact form ---------- */
-$('#contactForm').addEventListener('submit',function(e){
-  e.preventDefault();var f=e.target,name=f.name.value.trim();
-  if(!name){f.name.focus();toast('Please add your name');return}
+var cForm=$('#contactForm');
+function buildMsg(){var f=cForm,name=f.name.value.trim();
   var text='Hi! My name is '+name+(f.biz.value.trim()?' from '+f.biz.value.trim():'')+'.\nI need: '+f.type.value+'\nTier: '+f.tier.value+(f.msg.value.trim()?'\n\n'+f.msg.value.trim():'');
   $('#doneWa').href=wa(text);
   $('#doneMail').href='mailto:'+EMAIL+'?subject='+encodeURIComponent('Website enquiry — '+name)+'&body='+encodeURIComponent(text);
   $('#doneCopy').onclick=function(){copy(text)};
-  $('#formDone').classList.add('show');
+  return name;
+}
+cForm.addEventListener('submit',function(e){
+  e.preventDefault();
+  if(!cForm.name.value.trim()){cForm.name.focus();toast('Please add your name');return}
+  buildMsg();$('#formDone').classList.add('show');
 });
+/* edits after "Prepare my message" update the send links, so the old text is never sent */
+['input','change'].forEach(function(ev){cForm.addEventListener(ev,function(){if(!$('#formDone').classList.contains('show'))return;if(!cForm.name.value.trim()){$('#formDone').classList.remove('show');return}buildMsg()})});
 
 /* ---------- faq ---------- */
 $$('#faqList .qa').forEach(function(q){$('button',q).addEventListener('click',function(){var o=!q.classList.contains('open');
@@ -257,7 +267,7 @@ setInterval(function(){if(cur!=='home'||reduce||document.hidden||busy||scrolling
 
 /* search typing loop */
 var sq=$('#srchQ'),qs=['restaurant grand baie','bridal boutique port louis','tuition moka','car dealer mauritius'],qi=0;
-(function typeQ(){var q=qs[qi%qs.length],i=0;sq.textContent='';var t=setInterval(function(){if(scrolling)return;sq.textContent=q.slice(0,++i);if(i>=q.length){clearInterval(t);setTimeout(function(){qi++;typeQ()},4200)}},70)})();
+(function typeQ(){var q=qs[qi%qs.length],i=0;sq.textContent='';var t=setInterval(function(){if(scrolling||cur!=='home'||document.hidden)return;sq.textContent=q.slice(0,++i);if(i>=q.length){clearInterval(t);setTimeout(function(){qi++;typeQ()},4200)}},70)})();
 
 /* ---------- build demo ---------- */
 var demo=$('#demo'),steps=$$('#bdSteps .bd__step'),dots=$$('#bdDots i'),urls=['untitled-sketch','draft.design','preview.motion','lepetitlagon.mu'],stage=-1;
@@ -276,7 +286,8 @@ $$('.bx,#admin').forEach(function(el){io2.observe(el)});
 var svcImg=$('#svcImg'),svcI=$('img',svcImg);
 if(fine){$$('#svcList .svc__row').forEach(function(r){r.addEventListener('mouseenter',function(){svcI.src=IMG[r.dataset.im];svcImg.classList.add('on')});r.addEventListener('mouseleave',function(){svcImg.classList.remove('on')})});
   var sx=0,sy=0,stx=0,sty=0;addEventListener('mousemove',function(e){stx=e.clientX+24;sty=e.clientY-100},{passive:true});
-  (function lp(){sx+=(stx-sx)*.12;sy+=(sty-sy)*.12;svcImg.style.transform=svcImg.classList.contains('on')?'translate('+sx+'px,'+sy+'px)':'translate('+sx+'px,'+sy+'px) scale(.6)';requestAnimationFrame(lp)})()}
+  /* follow loop runs only while the services page is open (not every frame on every page) */
+  (function lp(){if(cur==='services'){sx+=(stx-sx)*.12;sy+=(sty-sy)*.12;svcImg.style.transform=svcImg.classList.contains('on')?'translate('+sx+'px,'+sy+'px)':'translate('+sx+'px,'+sy+'px) scale(.6)'}requestAnimationFrame(lp)})()}
 
 /* ---------- shots hover pan ---------- */
 
@@ -306,8 +317,12 @@ addEventListener('scroll',onScroll,{passive:true});
 
 /* ---------- mobile menu ---------- */
 var burger=$('#burger');
-function menu(open){html.classList.toggle('menu-open',open);burger.setAttribute('aria-expanded',open);burger.setAttribute('aria-label',open?'Close menu':'Open menu');if(lenis){open?lenis.stop():lenis.start()}}
+function menu(open){var was=html.classList.contains('menu-open');html.classList.toggle('menu-open',open);burger.setAttribute('aria-expanded',open);burger.setAttribute('aria-label',open?'Close menu':'Open menu');
+  var mn=$('#main');if(mn)mn.inert=!!open;
+  if(lenis&&!busy){open?lenis.stop():lenis.start()}
+  if(open)setTimeout(function(){var f=$('#mnav a.big');if(f)f.focus({preventScroll:true})},60);else if(was&&document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#mnav'))burger.focus({preventScroll:true})}
 burger.addEventListener('click',function(){menu(!html.classList.contains('menu-open'))});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&html.classList.contains('menu-open'))menu(false)});
 
 /* ---------- smooth scroll ---------- */
 var lenis=null;
@@ -325,11 +340,13 @@ function dFrame(t){dx.clearRect(0,0,DW,DH);var R=180;for(var i=0;i<pts.length;i+
 function dLoop(t){if(!dRun)return;if(!(coarse&&scrolling))dFrame(t);requestAnimationFrame(dLoop)}
 function dCheck(){var on=dVis&&cur==='home'&&!document.hidden&&!reduce;if(on&&!dRun){dRun=true;requestAnimationFrame(dLoop)}else if(!on)dRun=false}
 dSize();if(reduce)dFrame(0);
+var dW=innerWidth;
 new IntersectionObserver(function(es){dVis=es[0].isIntersecting;dCheck()}).observe(dc);
 document.addEventListener('visibilitychange',dCheck);
 $('#hero').addEventListener('mousemove',function(e){var r=dc.getBoundingClientRect();mxp=e.clientX-r.left;myp=e.clientY-r.top});
 $('#hero').addEventListener('mouseleave',function(){mxp=myp=-999});
-addEventListener('resize',function(){dSize();fh()});
+/* phones fire resize when the URL bar shows/hides: only rebuild the dot canvas when the width really changes */
+addEventListener('resize',function(){if(innerWidth!==dW){dW=innerWidth;dSize();if(reduce)dFrame(0)}fh()});
 
 /* ---------- zoom tabs ---------- */
 $$('.ztabs button').forEach(function(b,i){b.addEventListener('click',function(){$$('.ztabs button').forEach(function(x,k){x.classList.toggle('on',k===i);x.setAttribute('aria-selected',k===i)});$$('.zoom__img').forEach(function(im,k){im.classList.toggle('on',k===i)})})});
@@ -350,7 +367,7 @@ var PHOTOS={"lemorne": {"id": "photo-1513415563383-4e580ed27a46", "ph": "data:im
 function photoW(el){var w=el.getBoundingClientRect().width||innerWidth,d=Math.min(2,window.devicePixelRatio||1),t=w*d;return t<=700?700:t<=1100?1100:t<=1600?1600:2200}
 $$('[data-photo]').forEach(function(el){var p=PHOTOS[el.dataset.photo];if(!p)return;el.style.backgroundImage='url('+p.ph+')';
   var im=document.createElement('img');im.alt=el.closest('figure')?'':p.cap;im.decoding='async';if(!el.hasAttribute('data-eager'))im.loading='lazy';
-  im.onload=function(){im.classList.add('ok')};im.onerror=function(){im.remove()};
+  im.onload=function(){im.classList.add('ok');setTimeout(function(){el.style.backgroundImage='none'},1200)};im.onerror=function(){im.remove()};
   im.src='https://images.unsplash.com/'+p.id+'?auto=format&fit=crop&q=62&w='+photoW(el);el.appendChild(im)});
 
 /* ======================= ROUTER ======================= */
@@ -398,9 +415,11 @@ function build(n){
       st.fromTo(imgs[0],{scale:1.25},{scale:1,duration:1,ease:'none'},0)
         .fromTo(lines[0].children,{y:60,opacity:0},{y:0,opacity:1,stagger:.06,duration:.3},0)
         .to(bars[0],{scaleX:1,duration:1,ease:'none'},0);
+      /* phones: crossfade (GPU-cheap) instead of an animated clip-path, which repaints the full-screen photo every frame */
+      if(coarse)G.set(imgs.slice(1),{clipPath:'none',opacity:0});
       [1,2].forEach(function(i){var t=i*1.1;
         st.to(lines[i-1],{y:-80,opacity:0,duration:.3,ease:'power2.in'},t-.2)
-          .fromTo(imgs[i],{clipPath:'inset(100% 0% 0% 0%)',scale:1.3},{clipPath:'inset(0% 0% 0% 0%)',scale:1,duration:.7,ease:'power2.inOut'},t-.2)
+          .fromTo(imgs[i],coarse?{opacity:0,scale:1.12}:{clipPath:'inset(100% 0% 0% 0%)',scale:1.3},coarse?{opacity:1,scale:1,duration:.7,ease:'power2.inOut'}:{clipPath:'inset(0% 0% 0% 0%)',scale:1,duration:.7,ease:'power2.inOut'},t-.2)
           .set(lines[i],{opacity:1},t)
           .fromTo(lines[i].children,{y:60,opacity:0},{y:0,opacity:1,stagger:.06,duration:.3},t)
           .to(bars[i],{scaleX:1,duration:1,ease:'none'},t)});
@@ -431,7 +450,8 @@ function heroIn(n){
   if(!FX)return;var P=$('[data-page="'+n+'"]');
   var tl=G.timeline({defaults:{ease:'expo.out'}});
   tl.fromTo($$('.hero h1 .ch, .ph h1 .ch',P),{yPercent:120,rotate:12},{yPercent:0,rotate:0,duration:1.25,stagger:.018,transformOrigin:'0% 100%'})
-    .fromTo($$('[data-hi]',P),{y:30,opacity:0},{y:0,opacity:1,duration:1.1,stagger:.08},'-=1.0').fromTo($$('.ph__bg',P),{opacity:0,scale:1.2},{opacity:.55,scale:1.08,duration:1.8,ease:'power2.out'},0);
+    .fromTo($$('[data-hi]',P),{y:30,opacity:0},{y:0,opacity:1,duration:1.1,stagger:.08},'-=1.0');
+  var phb=$$('.ph__bg',P);if(phb.length)tl.fromTo(phb,{opacity:0,scale:1.2},{opacity:.55,scale:1.08,duration:1.8,ease:'power2.out'},0);
   if(n==='home'){
     tl.fromTo('#rotW',{yPercent:110,opacity:0},{yPercent:0,opacity:1,duration:1},'-=1.2')
       .fromTo(rotP,{strokeDashoffset:420},{strokeDashoffset:0,duration:1.2,ease:'power3.inOut'},'-=.6')
@@ -444,7 +464,7 @@ function cover(n,mid,after){
   busy=true;if(lenis)lenis.stop();
   ptT.textContent=routes[n];ptK.textContent=String(keys.indexOf(n)+1).padStart(2,'0')+' / '+String(keys.length).padStart(2,'0');
   G.set('#pt',{display:'block'});G.set(ptB,{clipPath:'inset(100% 0% 0% 0%)'});G.set('.pt__c',{opacity:1,y:0});G.set([ptT,ptK],{yPercent:120});G.set(ptL,{scaleX:0});
-  G.timeline({onComplete:function(){busy=false}})
+  G.timeline({onComplete:function(){busy=false;if(pending){var p=pending;pending=null;if(p!==cur)navigate(p,true)}}})
    .to(ptB,{clipPath:'inset(0% 0% 0% 0%)',duration:.8,ease:'expo.inOut',stagger:.08})
    .to([ptK,ptT],{yPercent:0,duration:.8,stagger:.06,ease:'expo.out'},'-=.45')
    .to(ptL,{scaleX:1,duration:.6,ease:'power2.inOut'},'<')
@@ -453,17 +473,21 @@ function cover(n,mid,after){
    .to(ptB.slice().reverse(),{clipPath:'inset(0% 0% 100% 0%)',duration:.85,ease:'expo.inOut',stagger:.08},'>-.1')
    .call(after,null,'-=.75').set('#pt',{display:'none'});
 }
-function navigate(n){
-  if(busy||!routes[n])return;
+var pending=null;
+/* fromHistory: the URL already changed (Back/Forward or a queued nav), so don't add a history entry */
+function navigate(n,fromHistory){
+  if(!routes[n])return;
   if(html.classList.contains('menu-open'))menu(false);
-  try{if(location.hash!=='#'+n)history.replaceState(null,'','#'+n)}catch(e){}
-  if(n===cur){if(lenis)lenis.scrollTo(0,{duration:1.2});else scrollTo({top:0,behavior:reduce?'auto':'smooth'});return}
+  if(!fromHistory){try{if(location.hash!=='#'+n)history.pushState(null,'','#'+n)}catch(e){}}
+  if(busy){pending=n;return} /* URL already updated above; finish the running transition, then go */
+  if(n===cur){if(fromHistory)return;if(lenis)lenis.scrollTo(0,{duration:1.2});else scrollTo({top:0,behavior:reduce?'auto':'smooth'});return}
   if(!FX){show(n);build(n);return}
-  cover(n,function(){kill();show(n);build(n)},function(){if(lenis)lenis.start();heroIn(n)});
+  cover(n,function(){kill();show(n);build(n)},function(){if(lenis&&!html.classList.contains('menu-open'))lenis.start();heroIn(n)});
 }
 document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');if(!a)return;var n=a.getAttribute('href').slice(1);
   if(routes[n]){e.preventDefault();navigate(n)}else if(n===''){e.preventDefault()}});
-addEventListener('hashchange',function(){var n=location.hash.slice(1);if(routes[n]&&n!==cur)navigate(n)});
+/* Back/Forward (and typed hashes) change the hash: follow it */
+addEventListener('hashchange',function(){var n=location.hash.slice(1)||'home';if(routes[n])navigate(n,true)});
 
 /* ======================= BOOT ======================= */
 var first=routes[location.hash.slice(1)]?location.hash.slice(1):'home';
