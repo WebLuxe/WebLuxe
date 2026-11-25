@@ -111,29 +111,23 @@ function copy(text){function fb(){var ta=document.createElement('textarea');ta.v
 /* ---------- portfolio videos: play only while on screen (saves data), stay still for reduced motion ---------- */
 (function(){var vids=$$('video[data-vid]');if(!vids.length)return;
   vids.forEach(function(v){v.muted=true;v.setAttribute('disablepictureinpicture','');v.addEventListener('contextmenu',function(e){e.preventDefault()})});
-  /* posters load only when their video gets near the screen (not on other pages) */
-  function poster(v){if(v.dataset.poster&&!v.poster)v.poster=v.dataset.poster}
-  if(!('IntersectionObserver' in window)){vids.forEach(poster);return}
-  var pio=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){poster(e.target);pio.unobserve(e.target)}})},{rootMargin:'600px 0px'});
+  /* posters + buffering start when a video gets near the screen, so it is ready (no blank flash) before it plays */
+  function prep(v){if(v.dataset.poster&&!v.poster)v.poster=v.dataset.poster;if(!reduce&&v.preload==='none')v.preload='auto'}
+  if(!('IntersectionObserver' in window)){vids.forEach(prep);return}
+  var pio=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){prep(e.target);pio.unobserve(e.target)}})},{rootMargin:'600px 0px'});
   vids.forEach(function(v){pio.observe(v)});
   if(reduce)return;
-  /* only ONE video plays at a time: the hovered one, else the most visible one */
-  var ratio=new Map(), hovered=null, current=null;
-  function pick(){
-    var best=null,br=.35;
-    if(hovered&&(ratio.get(hovered)||0)>0)best=hovered;
-    else ratio.forEach(function(r,v){if(r>br){br=r;best=v}});
-    if(best===current)return;
-    if(current&&!current.paused)current.pause();
-    current=best;
-    if(best){if(best.preload==='none')best.preload='auto';var p=best.play();if(p&&p.catch)p.catch(function(){})}
-  }
-  var io=new IntersectionObserver(function(es){es.forEach(function(e){ratio.set(e.target,e.isIntersecting?e.intersectionRatio:0)});pick()},{threshold:[0,.25,.5,.75,1]});
-  vids.forEach(function(v){io.observe(v);
-    var card=v.closest('.tpl__card,.shot')||v;
-    if(fine){card.addEventListener('mouseenter',function(){hovered=v;pick()});card.addEventListener('mouseleave',function(){if(hovered===v){hovered=null;pick()}})}
-  });
-  document.addEventListener('visibilitychange',function(){if(document.hidden&&current)current.pause();else if(current)current.play().catch(function(){})});
+  /* every video that is properly on screen plays; it keeps playing until it is mostly off screen
+     (hysteresis: start at 45% visible, stop under 10%) so nothing flickers between play/pause while scrolling.
+     Touch devices cap it at 2 at once to keep phones smooth. */
+  var MAXP=matchMedia('(pointer:coarse)').matches?2:6, on=new Set(), ratio=new Map();
+  function start(v){if(on.has(v))return;if(on.size>=MAXP){var worst=null,wr=2;on.forEach(function(o){var r=ratio.get(o)||0;if(r<wr){wr=r;worst=o}});if(worst&&wr<(ratio.get(v)||0))stop(worst);else return}
+    on.add(v);if(document.hidden)return;var p=v.play();if(p&&p.catch)p.catch(function(){})}
+  function stop(v){if(!on.has(v))return;on.delete(v);if(!v.paused)v.pause()}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){var v=e.target,r=e.isIntersecting?e.intersectionRatio:0;ratio.set(v,r);
+    if(r>=.45)start(v);else if(r<.1)stop(v)})},{threshold:[0,.1,.25,.45,.7,1]});
+  vids.forEach(function(v){io.observe(v)});
+  document.addEventListener('visibilitychange',function(){on.forEach(function(v){if(document.hidden)v.pause();else v.play().catch(function(){})})});
 })();
 
 /* ---------- performance: pause decorative loops while scrolling (touch) and when off screen ---------- */
@@ -426,7 +420,6 @@ function build(n){
       G.to(tr,{x:function(){return -(tr.scrollWidth-innerWidth)},ease:'none',scrollTrigger:{trigger:'#hwPin',start:'top top',end:function(){return '+='+(tr.scrollWidth-innerWidth)},pin:true,scrub:true,anticipatePin:1,invalidateOnRefresh:true}});
     });
   }
-  if(n==='work'){$$('.shot').forEach(function(s){G.fromTo(s,{clipPath:'inset(14% 10% 14% 10% round 28px)'},{clipPath:'inset(0% 0% 0% 0% round 18px)',ease:'none',scrollTrigger:{trigger:s,start:'top 98%',end:'top 45%',scrub:true}})});}
   if(n==='process'){
     G.to('#tlLine',{scaleY:1,ease:'none',scrollTrigger:{trigger:'#tl',start:'top 60%',end:'bottom 60%',scrub:true}});
     $$('.tl__item').forEach(function(it){ST.create({trigger:it,start:'top 60%',onEnter:function(){it.classList.add('on')},onLeaveBack:function(){it.classList.remove('on')}})});
@@ -485,7 +478,7 @@ G.set($$('.hero h1 .ch,.ph h1 .ch'),{yPercent:120});G.set($$('[data-hi]'),{opaci
 var ld=$('#ld'),word=$('#ldWord'),num=$('#ldN'),logoTxt=$('#logoTxt'),o={p:0};
 $$('#ldWord .ld__mask').forEach(charify);
 var chars=$$('#ldWord .ch');
-var hdrBits=['.logo__mark','.nav','.hdr__in > .btn','#burger'];
+var hdrBits=['.logo__mark','.nav','.hdr .ccy','.hdr__in > .btn','#burger'];
 G.set(logoTxt,{opacity:0});G.set(hdrBits,{opacity:0});G.set('.hdr',{y:0});
 var tl=G.timeline();
 tl.fromTo(chars,{yPercent:120,rotate:8,filter:'blur(6px)',opacity:0},{yPercent:0,rotate:0,filter:'blur(0px)',opacity:1,duration:1.2,stagger:.035,ease:'expo.out'},.15)
