@@ -2,7 +2,7 @@
 /* ======================= EDIT THESE ======================= */
 var WHATSAPP = '23057534025';            // your WhatsApp number: country code + number, digits only
 var WHATSAPP_DISPLAY = '+230 5753 4025'; // how the number shows on the page
-var GOATCOUNTER = '';                    // free, cookie-free analytics: sign up at goatcounter.com, put your code here (e.g. 'webluxe'). Empty = off.
+var GOATCOUNTER = '';                    // free, cookie-free analytics: sign up at goatcounter.com, put your code here (e.g. 'webluxe'). Empty = off. If you turn it on, update privacy.html first.
 var EMAIL = 'buildyourdreamwebsitedotcom@gmail.com';
 var TIERS = [
   {id:'low',  name:'Low',  web:10000, be:15000, days:7,  lvl:1, for:'A clean site to get your business online.',
