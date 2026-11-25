@@ -2,17 +2,20 @@
 /* ======================= EDIT THESE ======================= */
 var WHATSAPP = '23057534025';            // your WhatsApp number: country code + number, digits only
 var WHATSAPP_DISPLAY = '+230 5753 4025'; // how the number shows on the page
+var GOATCOUNTER = '';                    // free, cookie-free analytics: sign up at goatcounter.com, put your code here (e.g. 'webluxe'). Empty = off.
 var EMAIL = 'buildyourdreamwebsitedotcom@gmail.com';
 var TIERS = [
   {id:'low',  name:'Low',  web:10000, be:15000, days:7,  lvl:1, for:'A clean site to get your business online.',
    feats:['1–3 pages, mobile-first','WhatsApp, call & contact form','Google Map & SEO basics','1 round of changes'], beNote:'Edit your own text & photos'},
-  {id:'mid',  name:'Mid',  web:27000, be:35000, days:14, lvl:2, for:'A full custom site for growing businesses.',
+  {id:'mid',  name:'Mid',  web:30000, be:38000, days:14, lvl:2, for:'A full custom site for growing businesses.',
    feats:['Up to 6 custom pages','Scroll animations','Gallery, services & reviews','Google Business set-up'], beNote:'Content editor + bookings'},
-  {id:'high', name:'High', web:45000, be:52000, days:25, lvl:3, hot:true, badge:'Most popular', for:'Bespoke, animated, unforgettable.',
+  {id:'high', name:'High', web:49000, be:57000, days:25, lvl:3, hot:true, badge:'Most popular', for:'Bespoke, animated, unforgettable.',
    feats:['Up to 10 bespoke pages','Loader & page transitions','Scroll scenes & effects','English + French'], beNote:'Logins, bookings & payments'},
-  {id:'ultra',name:'Ultra',web:72000, be:79000, days:38, lvl:4, ultra:true, badge:'Flagship', for:'An app-like flagship experience.',
+  {id:'ultra',name:'Ultra',web:79000, be:87000, days:38, lvl:4, ultra:true, badge:'Flagship', for:'An app-like flagship experience.',
    feats:['Unlimited pages','Custom interactive features','Bespoke art direction','Priority support'], beNote:'Full admin panel & analytics'}
 ];
+var SHOW_PRICES = false; // false = hide tier prices (only 'From Rs 10,000' shows; everything else says 'Get a quote'). true = show full prices.
+var INTL = 2;  // overseas clients: prices shown in a foreign currency are local MUR price x INTL (set 1 to show plain conversions)
 var EXTRAS = [ // optional add-ons in the estimator — change or remove freely
   {id:'logo', n:'Logo design', p:3500, d:2},
   {id:'copy', n:'Copywriting', p:4000, d:2},
@@ -21,7 +24,21 @@ var EXTRAS = [ // optional add-ons in the estimator — change or remove freely
 ];
 /* ========================================================== */
 
-var IMG = {conneqt:'assets/img/work/conneqt.webp',niadelta:'assets/img/work/niadelta.webp',tuition:'assets/img/work/tuition-centre.webp',saree:'assets/img/work/saree-shop.webp',store:'assets/img/templates/electronics-store.webp'};
+/* ---------- analytics (GoatCounter, only when GOATCOUNTER is set) ---------- */
+function track(path,title,ev){try{if(window.goatcounter&&window.goatcounter.count)window.goatcounter.count({path:path,title:title||path,event:!!ev})}catch(e){}}
+if(GOATCOUNTER){
+  window.goatcounter={no_onload:true};
+  var gcs=document.createElement('script');gcs.async=true;gcs.src='https://gc.zgo.at/count.js';gcs.setAttribute('data-goatcounter','https://'+GOATCOUNTER+'.goatcounter.com/count');
+  gcs.onload=function(){track('/'+(location.hash.slice(1)||'home'),document.title)};document.head.appendChild(gcs);
+  window.addEventListener('hashchange',function(){var n=location.hash.slice(1);if(n&&!/^(top)$/.test(n))setTimeout(function(){track('/'+n,document.title)},400)});
+  document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href')||'';
+    if(/wa\.me/.test(h))track('whatsapp-click',a.id||a.textContent.trim().slice(0,40),true);
+    else if(/^mailto:/.test(h))track('email-click',a.id||'email',true);
+    else if(/^tel:/.test(h))track('call-click',a.id||'call',true);
+  },true);
+}
+
+var IMG = {education:'assets/img/work/education.webp',consultancy:'assets/img/work/consultancy.webp',tuition:'assets/img/work/tuition-centre.webp',saree:'assets/img/work/saree-shop.webp',store:'assets/img/templates/electronics-store.webp'};
 var $=function(s,c){return (c||document).querySelector(s)}, $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};
 var html=document.documentElement, reduce=matchMedia('(prefers-reduced-motion: reduce)').matches, fine=matchMedia('(pointer:fine)').matches;
 var G=window.gsap, ST=window.ScrollTrigger, FX=!!(G&&ST&&!reduce);
@@ -31,6 +48,58 @@ $('#yr').textContent=new Date().getFullYear();
 (function(){var sel='img,.shot,.win,.hcard__img,.tpl__view,.zoom__frame,.lap,.ph-dev,.svc__img';
   ['contextmenu','dragstart'].forEach(function(ev){document.addEventListener(ev,function(e){if(e.target.closest&&e.target.closest(sel))e.preventDefault()})})})();
 function fmt(n){return Math.round(n).toLocaleString('en-US')}
+
+/* ---------- currency: all prices are stored in MUR, shown in the visitor's currency ---------- */
+var CCY = { // fallback rates (1 MUR = x); live rates replace these when available
+  MUR:{s:'Rs ',r:1},     USD:{s:'$',r:.0218},  EUR:{s:'€',r:.0201},
+  GBP:{s:'£',r:.0171},   ZAR:{s:'R ',r:.392},  INR:{s:'₹',r:1.86}
+};
+var ccy='MUR';
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+function detectCur(){
+  var saved=store('wl_cur');if(saved&&CCY[saved])return saved;
+  var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
+  var lang=(navigator.language||'').toLowerCase();
+  if(tz==='Indian/Mauritius')return 'MUR';
+  if(/^Europe\/(London|Belfast|Guernsey|Isle_of_Man|Jersey)$/.test(tz))return 'GBP';
+  if(/^Europe\//.test(tz)||tz==='Indian/Reunion'||tz==='Indian/Mayotte')return 'EUR';
+  if(/^Africa\/(Johannesburg|Maseru|Mbabane)$/.test(tz))return 'ZAR';
+  if(/^Asia\/(Kolkata|Calcutta)$/.test(tz))return 'INR';
+  if(/-mu$/.test(lang))return 'MUR';
+  return tz?'USD':'MUR';
+}
+(function(){var c=store('wl_fx');if(!c)return;try{c=JSON.parse(c);for(var k in c.r)if(CCY[k])CCY[k].r=c.r[k]}catch(e){}})();
+ccy=detectCur();
+function nice(v){var s=v<100?5:v<1000?10:v<10000?50:100;return Math.round(v/s)*s}
+function conv(mur,actual){return ccy==='MUR'?Math.round(mur):nice(mur*(actual?1:INTL)*CCY[ccy].r)}
+function mNum(mur,actual){return fmt(conv(mur,actual))}
+function money(mur,actual){return CCY[ccy].s+mNum(mur,actual)}
+function compact(mur,actual){var v=conv(mur,actual);return v>=10000?{n:Math.round(v/1000),k:'k'}:{n:v,k:''}}
+function kMoney(mur,actual){var c=compact(mur,actual);return CCY[ccy].s+fmt(c.n)+c.k}
+function applyCur(){
+  html.setAttribute('data-ccy',ccy);html.classList.toggle('noprice',!SHOW_PRICES);
+  $$('[data-cur]').forEach(function(s){s.value=ccy});
+  $$('[data-sym]').forEach(function(e){e.textContent=e.dataset.sym==='sp'?CCY[ccy].s:CCY[ccy].s.trim()});
+  $$('[data-mur]').forEach(function(e){var v=+e.dataset.mur,f=e.dataset.fmt,a=e.hasAttribute('data-actual');
+    e.textContent=(e.dataset.pre||'')+(f==='k'?kMoney(v,a):f==='n'?mNum(v,a):money(v,a))+(e.dataset.suf||'')});
+  $$('[data-murk]').forEach(function(e){var c=compact(+e.dataset.murk);e.dataset.to=c.n;if(e.dataset.done)e.textContent=fmt(c.n);
+    var k=e.nextElementSibling;if(k&&k.hasAttribute('data-ksuf'))k.textContent=c.k});
+  $$('[data-curnote]').forEach(function(e){e.hidden=ccy==='MUR'||!SHOW_PRICES;e.textContent='International rates, shown in approximate '+ccy+'. Based in Mauritius? Switch to Rs for local prices.'});
+  $$('#fTier option[data-lo]').forEach(function(o){if(!SHOW_PRICES){o.textContent=o.value=o.dataset.n;return}o.textContent=o.dataset.n+' ('+kMoney(+o.dataset.lo)+'–'+fmt(compact(+o.dataset.hi).n)+compact(+o.dataset.hi).k+')';o.value=o.textContent});
+  if(typeof mode!=='undefined')$$('#priceTiers .tp, #homeTiers .tp').forEach(function(s){var v=s.closest('#priceTiers')?+s.dataset[mode]:+s.dataset.web;s.textContent=mNum(v)});
+  if(typeof renderEst==='function'&&$('#estTotal'))renderEst(true);
+}
+function setCur(c){if(!CCY[c])return;ccy=c;store('wl_cur',c);applyCur()}
+document.addEventListener('change',function(e){if(e.target.matches&&e.target.matches('[data-cur]'))setCur(e.target.value)});
+(function(){var c=store('wl_fx');try{c=c&&JSON.parse(c)}catch(e){c=null}
+  if(c&&Date.now()-c.t<12*36e5)return;
+  if(!window.fetch)return;
+  fetch('https://open.er-api.com/v6/latest/MUR').then(function(r){return r.json()}).then(function(d){
+    if(!d||d.result!=='success'||!d.rates)return;var out={};
+    for(var k in CCY)if(k!=='MUR'&&d.rates[k]>0){CCY[k].r=d.rates[k];out[k]=d.rates[k]}
+    store('wl_fx',JSON.stringify({t:Date.now(),r:out}));applyCur();
+  }).catch(function(){});
+})();
 function wa(t){return 'https://wa.me/'+WHATSAPP+(t?'?text='+encodeURIComponent(t):'')}
 $('#waText').textContent=WHATSAPP_DISPLAY;
 $('#waLink').href=wa('Hi! I found WebLuxe online and I’d like a website.');
@@ -38,6 +107,40 @@ $('#waFloat').href=$('#ftrWa').href=wa('Hi! I’m interested in a website.');
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show')},2400)}
 function copy(text){function fb(){var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied to clipboard')}catch(e){toast('Select the text and copy it manually')}ta.remove()}
   try{navigator.clipboard.writeText(text).then(function(){toast('Copied to clipboard')},fb)}catch(e){fb()}}
+
+/* ---------- portfolio videos: play only while on screen (saves data), stay still for reduced motion ---------- */
+(function(){var vids=$$('video[data-vid]');if(!vids.length)return;
+  vids.forEach(function(v){v.muted=true;v.setAttribute('disablepictureinpicture','');v.addEventListener('contextmenu',function(e){e.preventDefault()})});
+  /* posters load only when their video gets near the screen (not on other pages) */
+  function poster(v){if(v.dataset.poster&&!v.poster)v.poster=v.dataset.poster}
+  if(!('IntersectionObserver' in window)){vids.forEach(poster);return}
+  var pio=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){poster(e.target);pio.unobserve(e.target)}})},{rootMargin:'600px 0px'});
+  vids.forEach(function(v){pio.observe(v)});
+  if(reduce)return;
+  /* only ONE video plays at a time: the hovered one, else the most visible one */
+  var ratio=new Map(), hovered=null, current=null;
+  function pick(){
+    var best=null,br=.35;
+    if(hovered&&(ratio.get(hovered)||0)>0)best=hovered;
+    else ratio.forEach(function(r,v){if(r>br){br=r;best=v}});
+    if(best===current)return;
+    if(current&&!current.paused)current.pause();
+    current=best;
+    if(best){if(best.preload==='none')best.preload='auto';var p=best.play();if(p&&p.catch)p.catch(function(){})}
+  }
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){ratio.set(e.target,e.isIntersecting?e.intersectionRatio:0)});pick()},{threshold:[0,.25,.5,.75,1]});
+  vids.forEach(function(v){io.observe(v);
+    var card=v.closest('.tpl__card,.shot')||v;
+    if(fine){card.addEventListener('mouseenter',function(){hovered=v;pick()});card.addEventListener('mouseleave',function(){if(hovered===v){hovered=null;pick()}})}
+  });
+  document.addEventListener('visibilitychange',function(){if(document.hidden&&current)current.pause();else if(current)current.play().catch(function(){})});
+})();
+
+/* ---------- performance: pause decorative loops while scrolling (touch) and when off screen ---------- */
+var scrolling=false,scrT,coarse=matchMedia('(pointer:coarse)').matches;
+addEventListener('scroll',function(){if(!scrolling){scrolling=true;if(coarse)html.classList.add('is-scr')}clearTimeout(scrT);scrT=setTimeout(function(){scrolling=false;html.classList.remove('is-scr')},220)},{passive:true});
+if('IntersectionObserver' in window){var secIO=new IntersectionObserver(function(es){es.forEach(function(e){e.target.classList.toggle('anim-off',!e.isIntersecting)})},{rootMargin:'100px 0px'});
+  $$('section,footer').forEach(function(s){secIO.observe(s)})}
 
 /* ---------- split text ---------- */
 function splitEl(el){
@@ -68,15 +171,16 @@ function tierCard(t,light){
   var lv='';for(var i=1;i<=4;i++)lv+='<i class="'+(i<=t.lvl?'on':'')+'"></i>';
   return '<article data-tilt class="tier'+(t.hot?' tier--hot':'')+(t.ultra?' tier--ultra':'')+'" data-r data-t="'+t.id+'">'+(t.badge?'<span class="tier__badge">'+t.badge+'</span>':'')+
   '<div class="tier__lvl">'+lv+'</div><h3>'+t.name+' tier</h3><div class="tier__for">'+t.for+'</div>'+
-  '<div class="tier__p"><small>Rs</small><span class="tp" data-web="'+t.web+'" data-be="'+t.be+'">'+fmt(t.web)+'</span></div>'+
+  (SHOW_PRICES?'<div class="tier__p"><small data-sym>'+CCY[ccy].s.trim()+'</small><span class="tp" data-web="'+t.web+'" data-be="'+t.be+'">'+mNum(t.web)+'</span></div>'
+   :'<div class="tier__p tier__p--q">'+(t.id==='low'?'<small>From</small><span data-mur="'+t.web+'">'+money(t.web)+'</span>':'<span>Get a quote</span>')+'</div>')+
   '<div class="tier__note">one-off · ready in ~'+(t.days<10?'1 week':Math.round(t.days/7)+' weeks')+'</div>'+
-  '<div class="tier__be"><span>+ Backend &amp; admin</span><b>Rs '+fmt(t.be)+'</b></div>'+
+  '<div class="tier__be"><span>+ Backend &amp; admin</span>'+(SHOW_PRICES?'<b data-mur="'+t.be+'">'+money(t.be)+'</b>':'<b>Available</b>')+'</div>'+
   '<ul>'+t.feats.map(function(f){return '<li>'+f+'</li>'}).join('')+'</ul>'+
   '<a href="#contact" class="btn '+(t.hot?'btn--ink':(light?'btn--line-ink':'btn--ghost'))+'" data-plan="'+t.id+'">Choose '+t.name+'</a></article>';
 }
 $('#homeTiers').innerHTML=TIERS.map(function(t){return tierCard(t,false)}).join('');
 $('#priceTiers').innerHTML=TIERS.map(function(t){return tierCard(t,false)}).join('');
-TIERS.forEach(function(t){$$('[data-p="'+t.id+'"]').forEach(function(e){e.textContent='Rs '+fmt(t.web)+' · '+fmt(t.be)+' w/ backend'})});
+TIERS.forEach(function(t){$$('[data-p="'+t.id+'"]').forEach(function(e){if(!SHOW_PRICES){e.innerHTML=t.id==='low'?'From <span data-mur="'+t.web+'"></span>':'';return}e.innerHTML='<span data-mur="'+t.web+'"></span> · <span data-mur="'+t.be+'" data-fmt="n"></span> w/ backend'})});
 $$('.tier').forEach(function(c){c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();c.style.setProperty('--tx',(e.clientX-r.left)+'px');c.style.setProperty('--ty',(e.clientY-r.top)+'px')})});
 
 /* pricing toggle */
@@ -84,15 +188,15 @@ var tog=$('#tog'), togI=$('i',tog);
 function placeTog(){var b=$('button.on',tog);togI.style.left=b.offsetLeft+'px';togI.style.width=b.offsetWidth+'px'}
 $$('button',tog).forEach(function(b){b.addEventListener('click',function(){
   $$('button',tog).forEach(function(x){x.classList.toggle('on',x===b)});placeTog();mode=b.dataset.mode;
-  $$('#priceTiers .tp').forEach(function(s){var to=+s.dataset[mode],from=+s.textContent.replace(/,/g,'');
+  $$('#priceTiers .tp').forEach(function(s){var to=conv(+s.dataset[mode]),from=+s.textContent.replace(/[^\d]/g,'');
     if(FX){var o={v:from};G.to(o,{v:to,duration:.7,ease:'power3.out',onUpdate:function(){s.textContent=fmt(o.v)}})}else s.textContent=fmt(to)});
   var r=$('input[name=mode][value='+mode+']');if(r){r.checked=true;renderEst()}
 })});
 
 /* ---------- estimator ---------- */
-$('#estTiers').innerHTML=TIERS.map(function(t,i){return '<label><input type="radio" name="tier" value="'+t.id+'"'+(i===0?' checked':'')+'><span><b>'+t.name+'</b><small>Rs '+fmt(t.web)+' / '+fmt(t.be)+'</small></span></label>'}).join('');
-$('#estExtras').innerHTML=EXTRAS.map(function(x){return '<label><input type="checkbox" value="'+x.id+'"><span>'+x.n+' <em>'+(x.pct?'+'+Math.round(x.pct*100)+'%':'+'+fmt(x.p))+'</em></span></label>'}).join('');
-var shown=10000, estForm=$('#estForm');
+$('#estTiers').innerHTML=TIERS.map(function(t,i){return '<label><input type="radio" name="tier" value="'+t.id+'"'+(i===0?' checked':'')+'><span><b>'+t.name+'</b>'+(SHOW_PRICES?'<small><span data-mur="'+t.web+'"></span> / <span data-mur="'+t.be+'" data-fmt="n"></span></small>':'<small>'+(t.days<10?'~1 week':'~'+Math.round(t.days/7)+' weeks')+'</small>')+'</span></label>'}).join('');
+$('#estExtras').innerHTML=EXTRAS.map(function(x){return '<label><input type="checkbox" value="'+x.id+'"><span>'+x.n+' '+(x.pct?'<em>+'+Math.round(x.pct*100)+'%</em>':'<em data-mur="'+x.p+'" data-pre="+"></em>')+'</span></label>'}).join('');
+var shown=0, estTw={v:0}, estForm=$('#estForm');
 function calc(){
   var t=TIERS.filter(function(x){return x.id===$('input[name=tier]:checked',estForm).value})[0];
   var m=$('input[name=mode]:checked',estForm).value, total=t[m], days=t.days+(m==='be'?5:0);
@@ -102,17 +206,19 @@ function calc(){
   return {total:total,days:days,lines:lines};
 }
 function tText(d){return d<=8?'Ready in about 1 week':'Ready in about '+Math.round(d/7)+' weeks'}
-function eText(r){return 'Hi! I used the WebLuxe price estimator:\n'+r.lines.map(function(l){return '• '+l[0]+' — Rs '+fmt(l[1])}).join('\n')+'\nEstimated total: Rs '+fmt(r.total)+'\nCan we talk about it?'}
-function renderEst(){
+function eText(r){if(!SHOW_PRICES)return 'Hi! I’d like a quote for a website:\n'+r.lines.map(function(l){return '• '+l[0]}).join('\n')+'\nCan you send me a price?';var intl=ccy!=='MUR';return 'Hi! I used the WebLuxe price estimator'+(intl?' (international rates, '+ccy+')':'')+':\n'+r.lines.map(function(l){return '• '+l[0]+' — '+(intl?'about '+money(l[1]):'Rs '+fmt(l[1]))}).join('\n')+'\nEstimated total: '+(intl?'about '+money(r.total):'Rs '+fmt(r.total))+'\nCan we talk about it?'}
+function renderEst(instant){
   var r=calc(), el=$('#estTotal');
-  $('#estLines').innerHTML=r.lines.map(function(l){return '<li><span>'+l[0]+'</span><span>Rs '+fmt(l[1])+'</span></li>'}).join('');
+  $('#estLines').innerHTML=r.lines.map(function(l){return '<li><span>'+l[0]+'</span><span>'+(SHOW_PRICES?money(l[1]):'✓')+'</span></li>'}).join('');
   $('#estTime').textContent=tText(r.days); $('#estWa').href=wa(eText(r));
-  if(FX){var o={v:shown};G.to(o,{v:r.total,duration:.6,ease:'power3.out',onUpdate:function(){el.textContent=fmt(o.v)}})}else el.textContent=fmt(r.total);
-  shown=r.total;
+  var tot=conv(r.total);G&&G.killTweensOf&&G.killTweensOf(estTw);
+  if(FX&&!instant){estTw.v=shown;G.to(estTw,{v:tot,duration:.6,ease:'power3.out',onUpdate:function(){el.textContent=fmt(estTw.v)}})}else el.textContent=fmt(tot);
+  shown=tot;
 }
-estForm.addEventListener('change',renderEst);
+estForm.addEventListener('change',function(){renderEst()});
 $('#estCopy').addEventListener('click',function(){copy(eText(calc()))});
 renderEst();
+applyCur();
 
 /* plan buttons -> prefill contact */
 document.addEventListener('click',function(e){var b=e.target.closest('[data-plan]');if(!b)return;
@@ -141,8 +247,8 @@ $$('#faqList .qa').forEach(function(q){$('button',q).addEventListener('click',fu
 var ba=$('#ba');$('input',ba).addEventListener('input',function(e){ba.style.setProperty('--x',e.target.value+'%')});
 
 /* ---------- hero: stack, rotator, spotlight ---------- */
-var wins=$$('#stackIn .win'),names=['ConneQt','NiaDelta','Your tuition centre'],order=[0,1,2];
-setInterval(function(){if(cur!=='home'||reduce)return;order.push(order.shift());wins.forEach(function(w,i){w.dataset.pos=order.indexOf(i)});$('#stackName').textContent=names[order[0]]},3800);
+var wins=$$('#stackIn .win'),names=['Your education platform','Your consultancy','Your tuition centre'],order=[0,1,2];
+setInterval(function(){if(cur!=='home'||reduce||scrolling)return;order.push(order.shift());wins.forEach(function(w,i){w.dataset.pos=order.indexOf(i)});$('#stackName').textContent=names[order[0]]},3800);
 var hero=$('#hero'),stackIn=$('#stackIn');
 if(fine&&!reduce){hero.addEventListener('mousemove',function(e){var r=hero.getBoundingClientRect();hero.style.setProperty('--mx',(e.clientX-r.left)+'px');hero.style.setProperty('--my',(e.clientY-r.top)+'px');
   var x=e.clientX/innerWidth-.5,y=e.clientY/innerHeight-.5;stackIn.style.transform='rotateY('+(x*10)+'deg) rotateX('+(-y*8)+'deg)'});
@@ -151,13 +257,13 @@ var rotWords=['website,','web shop,','platform,','brand,'],ri=0,rotW=$('#rotW'),
 function scramble(el,to,dur){var chars='abcdefghijklmnopqrstuvwxyz#%&*',from=el.textContent,len=Math.max(from.length,to.length),start=null;dur=dur||600;
   function step(ts){if(!start)start=ts;var p=Math.min(1,(ts-start)/dur),out='';for(var i=0;i<len;i++){if(i<to.length*p)out+=to[i]||'';else if(i<to.length)out+=to[i]===' '?' ':chars[Math.floor(Math.random()*chars.length)]}el.textContent=out;if(p<1)requestAnimationFrame(step);else el.textContent=to}
   requestAnimationFrame(step)}
-setInterval(function(){if(cur!=='home'||reduce||document.hidden||busy)return;ri=(ri+1)%rotWords.length;
+setInterval(function(){if(cur!=='home'||reduce||document.hidden||busy||scrolling)return;ri=(ri+1)%rotWords.length;
   if(!FX){rotW.textContent=rotWords[ri];return}
   G.timeline().to(rotW,{yPercent:-115,duration:.45,ease:'power3.in'}).call(function(){rotW.textContent=rotWords[ri]}).fromTo(rotW,{yPercent:115},{yPercent:0,duration:.8,ease:'expo.out'}).fromTo(rotP,{strokeDashoffset:420},{strokeDashoffset:0,duration:1,ease:'power3.out'},'-=.55')},3400);
 
 /* search typing loop */
-var sq=$('#srchQ'),qs=['restaurant grand baie','tuition moka','car dealer mauritius'],qi=0;
-(function typeQ(){var q=qs[qi%qs.length],i=0;sq.textContent='';var t=setInterval(function(){sq.textContent=q.slice(0,++i);if(i>=q.length){clearInterval(t);setTimeout(function(){qi++;typeQ()},4200)}},70)})();
+var sq=$('#srchQ'),qs=['restaurant grand baie','bridal boutique port louis','tuition moka','car dealer mauritius'],qi=0;
+(function typeQ(){var q=qs[qi%qs.length],i=0;sq.textContent='';var t=setInterval(function(){if(scrolling)return;sq.textContent=q.slice(0,++i);if(i>=q.length){clearInterval(t);setTimeout(function(){qi++;typeQ()},4200)}},70)})();
 
 /* ---------- build demo ---------- */
 var demo=$('#demo'),steps=$$('#bdSteps .bd__step'),dots=$$('#bdDots i'),urls=['untitled-sketch','draft.design','preview.motion','lepetitlagon.mu'],stage=-1;
@@ -222,7 +328,7 @@ function dSize(){var r=dc.getBoundingClientRect();DW=r.width;DH=r.height;dc.widt
 function dFrame(t){dx.clearRect(0,0,DW,DH);var R=180;for(var i=0;i<pts.length;i++){var p=pts[i],ax=p.x-mxp,ay=p.y-myp,d=Math.sqrt(ax*ax+ay*ay),f=d<R?1-d/R:0,w=Math.sin(p.x*.011+t*.0011)*Math.cos(p.y*.013+t*.0008);
   var tx=f?ax/d*f*22:0,ty=f?ay/d*f*22:0;p.ox+=(tx-p.ox)*.12;p.oy+=(ty-p.oy)*.12;var a=.09+w*.05+f*.75,sz=1.2+f*1.8+(w>.6?.5:0);
   dx.fillStyle=f>.04?'rgba(45,226,192,'+a.toFixed(3)+')':'rgba(243,238,228,'+a.toFixed(3)+')';dx.fillRect(p.x+p.ox-sz/2,p.y+p.oy-sz/2,sz,sz)}}
-function dLoop(t){if(!dRun)return;dFrame(t);requestAnimationFrame(dLoop)}
+function dLoop(t){if(!dRun)return;if(!(coarse&&scrolling))dFrame(t);requestAnimationFrame(dLoop)}
 function dCheck(){var on=dVis&&cur==='home'&&!document.hidden&&!reduce;if(on&&!dRun){dRun=true;requestAnimationFrame(dLoop)}else if(!on)dRun=false}
 dSize();if(reduce)dFrame(0);
 new IntersectionObserver(function(es){dVis=es[0].isIntersecting;dCheck()}).observe(dc);
@@ -251,11 +357,11 @@ function photoW(el){var w=el.getBoundingClientRect().width||innerWidth,d=Math.mi
 $$('[data-photo]').forEach(function(el){var p=PHOTOS[el.dataset.photo];if(!p)return;el.style.backgroundImage='url('+p.ph+')';
   var im=document.createElement('img');im.alt=el.closest('figure')?'':p.cap;im.decoding='async';if(!el.hasAttribute('data-eager'))im.loading='lazy';
   im.onload=function(){im.classList.add('ok')};im.onerror=function(){im.remove()};
-  im.src='https://images.unsplash.com/'+p.id+'?auto=format&fit=crop&q=72&w='+photoW(el);el.appendChild(im)});
+  im.src='https://images.unsplash.com/'+p.id+'?auto=format&fit=crop&q=62&w='+photoW(el);el.appendChild(im)});
 
 /* ======================= ROUTER ======================= */
 var routes={home:'Home',work:'Work',services:'Services',pricing:'Pricing',process:'Process',contact:'Contact'},keys=Object.keys(routes),cur=null,busy=false,mm=null;
-var titles={home:'WebLuxe — Web design studio in Mauritius',work:'Work — WebLuxe',services:'Services — WebLuxe',pricing:'Pricing (MUR) — WebLuxe',process:'Process — WebLuxe',contact:'Contact — WebLuxe'};
+var titles={home:'WebLuxe — Web design studio in Mauritius',work:'Work — WebLuxe',services:'Services — WebLuxe',pricing:'Pricing — WebLuxe',process:'Process — WebLuxe',contact:'Contact — WebLuxe'};
 function show(n){
   $$('[data-page]').forEach(function(p){p.hidden=p.dataset.page!==n});
   cur=n;document.title=titles[n];
@@ -265,12 +371,12 @@ function show(n){
 }
 function kill(){if(mm){mm.revert();mm=null}if(ST)ST.getAll().forEach(function(t){t.kill()})}
 function build(n){
-  if(!FX){$$('[data-page="'+n+'"] .cnt').forEach(function(c){c.textContent=c.dataset.to});return}
+  if(!FX){$$('[data-page="'+n+'"] .cnt').forEach(function(c){c.dataset.done=1;c.textContent=fmt(+c.dataset.to)});return}
   kill();mm=G.matchMedia();
   var P=$('[data-page="'+n+'"]');
   $$('[data-r]',P).forEach(function(el){G.fromTo(el,{y:50,opacity:0},{y:0,opacity:1,duration:1.2,ease:'expo.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}})});
   $$('[data-split]',P).forEach(function(el){if(el.closest('.hero h1,.ph h1'))return;G.fromTo($$('.wi',el),{yPercent:110},{yPercent:0,duration:1.2,stagger:.05,ease:'expo.out',scrollTrigger:{trigger:el,start:'top 88%',once:true}})});
-  $$('.cnt',P).forEach(function(c){var o={v:0};G.to(o,{v:+c.dataset.to,duration:1.8,ease:'power2.out',scrollTrigger:{trigger:c,start:'top 92%',once:true},onUpdate:function(){c.textContent=Math.round(o.v)}})});
+  $$('.cnt',P).forEach(function(c){var o={v:0};G.to(o,{v:+c.dataset.to,duration:1.8,ease:'power2.out',scrollTrigger:{trigger:c,start:'top 92%',once:true},onUpdate:function(){c.textContent=fmt(o.v)},onComplete:function(){c.dataset.done=1;c.textContent=fmt(+c.dataset.to)}})});
   $$('[data-words]',P).forEach(function(el){G.fromTo($$('.sw',el),{opacity:.13},{opacity:1,stagger:.1,ease:'none',scrollTrigger:{trigger:el,start:'top 80%',end:'bottom 45%',scrub:true}})});
   $$('.ph__bg',P).forEach(function(b){G.fromTo(b,{yPercent:0,scale:1.08},{yPercent:14,scale:1,ease:'none',scrollTrigger:{trigger:b.parentNode,start:'top top',end:'bottom top',scrub:true}})});
   $$('.ph__glow',P).forEach(function(g){G.to(g,{yPercent:40,ease:'none',scrollTrigger:{trigger:g.parentNode,start:'top top',end:'bottom top',scrub:true}})});

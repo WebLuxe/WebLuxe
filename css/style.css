@@ -876,3 +876,33 @@ html:not(.fx) .scn__txt{position:relative;top:0;transform:none}
 
 /* project screenshots: no drag / selection */
 .shot img,.win img,.hcard__img img,.tpl__view img,.zoom__img,.lap img,.ph-scr img,.svc__img img{-webkit-user-drag:none;user-select:none;-webkit-touch-callout:none}
+
+/* ---------- currency switcher ---------- */
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ccy{position:relative;display:inline-flex;align-items:center;margin-left:auto}
+.hdr .ccy{margin-right:-8px}
+.ccy select{appearance:none;-webkit-appearance:none;font:inherit;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--paper);background:rgba(243,238,228,.08);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;height:40px;padding:0 30px 0 14px;cursor:pointer;transition:background .3s}
+.ccy::after{content:'';position:absolute;right:13px;top:50%;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none;color:var(--paper);opacity:.7}
+.ccy select:hover{background:rgba(243,238,228,.14)}
+.ccy select:focus-visible{outline:2px solid var(--lagoon);outline-offset:2px}
+.ccy select option{color:#0d0d0b;background:#f3eee4}
+.ccy--inline{margin:40px 0 0 12px;vertical-align:top}
+.ccy--inline select{height:48px}
+.ccy__note{margin:14px 0 0;font-size:13px;opacity:.65;max-width:60ch}
+.ccy__note--ink{margin-top:12px}
+@media (max-width:1060px){.hdr .ccy{margin-right:0}}
+@media (max-width:600px){.ccy--inline{margin:14px 0 0}.hdr .ccy select{height:38px;padding:0 26px 0 12px;font-size:12px}}
+
+/* ---------- portfolio videos ---------- */
+.tpl__view video,.shot__view video{width:100%;height:100%;object-fit:cover;object-position:top;display:block;background:#111}
+
+/* ---------- prices hidden (SHOW_PRICES = false in js/main.js) ---------- */
+.noprice .tog,.noprice .ccy,.noprice .ccy__note,.noprice [data-bp],.noprice #estExtras em,.noprice .est__total{display:none!important}
+.tier__p--q{align-items:baseline;gap:8px}
+.tier__p--q span{font-size:clamp(30px,2.6vw,40px)}
+.noprice .est__lines{margin-top:18px}
+
+/* ---------- performance: decorative animations pause off screen, and on touch while scrolling ---------- */
+.anim-off,.anim-off *{animation-play-state:paused!important}
+html.is-scr [data-page] *,html.is-scr [data-page] *::before,html.is-scr [data-page] *::after{animation-play-state:paused!important}
+@media (pointer:coarse){.hdr.is-solid{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(13,13,11,.94)}}
